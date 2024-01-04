@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
-import { HbaseService } from './hbase.service';
+import { HbaseService, ScanTableOption } from './hbase.service';
+
+export class HbaseFilterParams implements ScanTableOption {}
 
 @Controller('hbase')
 export class HbaseController {
@@ -10,24 +12,41 @@ export class HbaseController {
     return await this.hbaseService.scanTables(table);
   }
 
-  @Get('/scan')
+  @Post('/scan')
   async getScanRows(
     @Query('table_name') tableName: string,
-    @Query('start_row') startRow: string,
-    @Query('end_row') endRow: string,
+    @Body() body: Record<string, any>,
   ) {
+    const { startTime, endTime } = body;
+
     const data = await this.hbaseService.fetchData(tableName, {
-      startRow: startRow,
-      endRow: endRow,
+      ...body,
+      startTime: startTime ? new Date(startTime).getTime() : null,
+      endTime: endTime ? new Date(endTime).getTime() : null,
     });
 
     return data;
   }
 
-  @Put('/create')
-  async postUpdateData(@Body() body: any) {
-    const { table, data } = body;
-    const result = await this.hbaseService.putData(table, data);
+  @Post('/create-table')
+  async postCreateTable(@Body() body: any) {
+    const { table, option, data } = body;
+
+    const isCreated = await this.hbaseService.createTable(table, option);
+
+    let result = isCreated;
+    if (data.length > 0) {
+      result = await this.hbaseService.putData(table, null, data);
+    }
+
+    return result;
+  }
+
+  @Put('/update-row')
+  async putUpdateRow(@Body() body: any) {
+    const { table, row, cells } = body;
+    console.log(cells);
+    const result = await this.hbaseService.putData(table, row, cells);
 
     return result;
   }

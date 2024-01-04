@@ -4,12 +4,18 @@ import { Injectable } from '@nestjs/common';
 export interface ScanTableOption {
   startRow?: string;
   endRow?: string;
-  columns?: string;
+  column?: string[];
   batch?: string;
   maxVersions?: string;
-  startTime?: string;
-  endTime?: string;
+  startTime?: any;
+  endTime?: any;
   filter?: Record<string, any>;
+}
+
+export interface TableOption {
+  IS_META?: boolean;
+  IS_ROOT?: boolean;
+  ColumnSchema?: Array<Record<any, string>>;
 }
 
 @Injectable()
@@ -30,9 +36,11 @@ export class HbaseService {
   }
 
   async getVersion(): Promise<any> {
-    return new this._hbase.version((err, res) => {
-      console.log(res);
-      return res;
+    return new Promise((resolve, reject) => {
+      this._hbase.version((err, res) => {
+        if (err) reject(err);
+        return resolve(res);
+      });
     });
   }
 
@@ -48,6 +56,18 @@ export class HbaseService {
     });
   }
 
+  async createTable(tableName: string, tableOption?: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this._hbase.table(tableName).create(tableOption, (err, res) => {
+        if (err) {
+          reject(err);
+        }
+
+        return resolve(res);
+      });
+    });
+  }
+
   async fetchData(tableName: string, options?: ScanTableOption): Promise<any> {
     return new Promise((resolve, reject) => {
       this._hbase.table(tableName).scan(options, (err, rows) => {
@@ -58,35 +78,16 @@ export class HbaseService {
     });
   }
 
-  async putData(tableName: string, data?: any): Promise<any> {
+  async putData(tableName: string, rowKey: string, data?: any): Promise<any> {
     return new Promise((resolve, reject) => {
       this._hbase
         .table(tableName)
-        .row(2)
-        .put(
-          [
-            {
-              column: 'personal_data:name',
-              timestamp: Date.now(),
-              $: 'niel',
-            },
-            {
-              column: 'personal_data:email',
-              timestamp: Date.now(),
-              $: 'email@test.com',
-            },
-            {
-              column: 'personal_data:name',
-              timestamp: Date.now(),
-              $: 'niel update',
-            },
-          ],
-          (err, res) => {
-            if (err) reject(err);
+        .row(rowKey)
+        .put(data, (err, res) => {
+          if (err) reject(err);
 
-            resolve(res);
-          },
-        );
+          resolve(res);
+        });
     });
   }
 }
